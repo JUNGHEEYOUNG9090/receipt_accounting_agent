@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+langgraph
+langchain
+langchain-openai
+supabase
+python-multipart
+requests
+python-dotenv
