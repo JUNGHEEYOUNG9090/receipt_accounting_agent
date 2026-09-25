@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.graph.receipt_graph import receipt_graph
+from backend.app.graph.receipt_pipeline import receipt_graph
 
 app = FastAPI()
 

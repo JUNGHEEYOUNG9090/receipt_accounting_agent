@@ -11,7 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+__pycache__/
+*.pyc
 .env
+*.xlsx
+receipt_test_*.jpg
 
 # Editor directories and files
 .vscode/*
