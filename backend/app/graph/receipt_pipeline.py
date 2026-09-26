@@ -12,19 +12,12 @@ from langgraph.graph import StateGraph, START, END
 
 load_dotenv()
 
-
 OCR_SERVER_URL = os.getenv("OCR_SERVER_URL")
 
 if not OCR_SERVER_URL:
-    raise RuntimeError(
-        "OCR_SERVER_URL이 .env에 설정되지 않았습니다."
-    )
+    raise RuntimeError("OCR_SERVER_URL이 .env에 설정되지 않았습니다.")
 
-
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 MODEL = "gpt-4.1-mini"
 
@@ -36,57 +29,119 @@ class ReceiptState(TypedDict):
     vision_results: list[dict]
 
 
-# ============================================================
-# OCR
-# ============================================================
-
 def process_receipt(state: ReceiptState):
-    files = []
+    all_ocr_results = []
 
-    try:
-        for image_path in state["image_paths"]:
-            file = open(image_path, "rb")
+    image_paths = state["image_paths"]
 
-            files.append(
-                (
-                    "files",
+    batch_size = 5
+
+    for start_index in range(0, len(image_paths), batch_size):
+
+        batch = image_paths[
+            start_index:start_index + batch_size
+        ]
+
+        files = []
+
+        try:
+            for image_path in batch:
+                file = open(image_path, "rb")
+
+                files.append(
                     (
-                        os.path.basename(image_path),
-                        file,
-                        "image/jpeg",
-                    ),
+                        "files",
+                        (
+                            os.path.basename(image_path),
+                            file,
+                            "image/jpeg",
+                        ),
+                    )
                 )
+
+            batch_number = (
+                start_index // batch_size
+            ) + 1
+
+            total_batches = (
+                len(image_paths) + batch_size - 1
+            ) // batch_size
+
+            print(
+                f"\n[OCR 시작] "
+                f"{batch_number}/{total_batches} "
+                f"({len(batch)}개)"
             )
 
-        response = requests.post(
-            OCR_SERVER_URL,
-            files=files,
-            timeout=180,
-        )
+            start = time.perf_counter()
 
-        response.raise_for_status()
+            response = requests.post(
+                OCR_SERVER_URL,
+                files=files,
+                timeout=900,
+            )
 
-        ocr_data = response.json()
+            response.raise_for_status()
 
-        return {
-            "ocr_results": ocr_data["files"]
-        }
+            ocr_data = response.json()
 
-    finally:
-        for _, (_, file, _) in files:
-            file.close()
+            elapsed = time.perf_counter() - start
 
+            print(
+                f"[OCR 완료] "
+                f"{batch_number}/{total_batches} "
+                f"| {elapsed:.3f}초"
+            )
 
-# ============================================================
-# OCR → LLM
-# ============================================================
+            batch_results = ocr_data["files"]
+
+            all_ocr_results.extend(batch_results)
+
+            # 배치별 OCR 결과 저장
+            batch_result_file = (
+                f"ocr_results_batch_{batch_number:02d}.json"
+            )
+
+            with open(
+                batch_result_file,
+                "w",
+                encoding="utf-8",
+            ) as f:
+                json.dump(
+                    batch_results,
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+
+            print(
+                f"[OCR 결과 저장] "
+                f"{batch_result_file}"
+            )
+
+        finally:
+            for _, (_, file, _) in files:
+                file.close()
+
+    return {
+        "ocr_results": all_ocr_results
+    }
+
 
 def extract_receipt_data(state: ReceiptState):
     receipts = []
 
-    for ocr in state["ocr_results"]:
+    for index, ocr in enumerate(
+        state["ocr_results"],
+        start=1,
+    ):
 
-        prompt = f"""
+        filename = ocr["filename"]
+
+        print(f"\n[LLM 시작] {filename}")
+
+        try:
+            prompt = f"""
 다음은 영수증 OCR 결과입니다.
 
 OCR 결과:
@@ -137,51 +192,68 @@ OCR 결과를 분석하여 영수증 정보를 JSON으로 정리하세요.
 }}
 """
 
-        start = time.perf_counter()
+            start = time.perf_counter()
 
-        response = client.responses.create(
-            model=MODEL,
-            input=prompt,
-        )
+            response = client.responses.create(
+                model=MODEL,
+                input=prompt,
+            )
 
-        result_text = response.output_text
+            result_text = response.output_text
 
-        receipt = json.loads(result_text)
+            receipt = json.loads(result_text)
 
-        llm_time = time.perf_counter() - start
+            llm_time = time.perf_counter() - start
 
-        usage = response.usage
+            usage = response.usage
 
-        input_tokens = usage.input_tokens
-        output_tokens = usage.output_tokens
+            input_tokens = usage.input_tokens
+            output_tokens = usage.output_tokens
 
-        input_cost = (
-            input_tokens / 1_000_000
-        ) * 0.40
+            input_cost = (
+                (input_tokens / 1_000_000) * 0.40
+            )
 
-        output_cost = (
-            output_tokens / 1_000_000
-        ) * 1.60
+            output_cost = (
+                (output_tokens / 1_000_000) * 1.60
+            )
 
-        llm_cost = input_cost + output_cost
+            llm_cost = input_cost + output_cost
 
-        receipts.append({
-            "filename": ocr["filename"],
-            "receipt": receipt,
-            "llm_time": round(llm_time, 3),
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "llm_cost": round(llm_cost, 8),
-        })
+            receipts.append(
+                {
+                    "filename": filename,
+                    "receipt": receipt,
+                    "llm_time": round(llm_time, 3),
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "llm_cost": round(llm_cost, 8),
+                }
+            )
+
+            print(
+                f"[LLM 완료] {filename} "
+                f"| {llm_time:.3f}초 "
+                f"| 비용: ${llm_cost:.8f}"
+            )
+
+        except Exception as e:
+
+            print(
+                f"[LLM 오류] {filename} "
+                f"| {type(e).__name__}: {e}"
+            )
+
+            print(
+                f"[LLM 건너뜀] {filename}"
+            )
+
+            continue
 
     return {
         "receipts": receipts
     }
 
-
-# ============================================================
-# Vision
-# ============================================================
 
 def extract_receipt_with_vision(state: ReceiptState):
     vision_results = []
@@ -190,18 +262,17 @@ def extract_receipt_with_vision(state: ReceiptState):
 
         filename = os.path.basename(image_path)
 
-        print(
-            f"\n[Vision 시작] {filename}"
-        )
+        print(f"\n[Vision 시작] {filename}")
 
-        start = time.perf_counter()
+        try:
+            start = time.perf_counter()
 
-        with open(image_path, "rb") as image_file:
-            image_base64 = base64.b64encode(
-                image_file.read()
-            ).decode("utf-8")
+            with open(image_path, "rb") as image_file:
+                image_base64 = base64.b64encode(
+                    image_file.read()
+                ).decode("utf-8")
 
-        prompt = """
+            prompt = """
 이미지에 있는 영수증을 직접 보고 정보를 추출하세요.
 
 다음 정보를 JSON으로 정리하세요.
@@ -248,111 +319,126 @@ def extract_receipt_with_vision(state: ReceiptState):
 }
 """
 
-        response = client.responses.create(
-            model=MODEL,
-            input=[
+            response = client.responses.create(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": prompt,
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": (
+                                    f"data:image/jpeg;base64,{image_base64}"
+                                ),
+                                "detail": "high",
+                            },
+                        ],
+                    }
+                ],
+            )
+
+            result_text = response.output_text
+
+            vision_receipt = json.loads(result_text)
+
+            vision_time = time.perf_counter() - start
+
+            usage = response.usage
+
+            input_tokens = usage.input_tokens
+            output_tokens = usage.output_tokens
+
+            input_cost = (
+                (input_tokens / 1_000_000) * 0.40
+            )
+
+            output_cost = (
+                (output_tokens / 1_000_000) * 1.60
+            )
+
+            vision_cost = input_cost + output_cost
+
+            vision_results.append(
                 {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": prompt,
-                        },
-                        {
-                            "type": "input_image",
-                            "image_url": (
-                                f"data:image/jpeg;base64,"
-                                f"{image_base64}"
-                            ),
-                            "detail": "high",
-                        },
-                    ],
+                    "filename": filename,
+                    "receipt": vision_receipt,
+                    "vision_time": round(
+                        vision_time,
+                        3,
+                    ),
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "vision_cost": round(
+                        vision_cost,
+                        8,
+                    ),
                 }
-            ],
-        )
+            )
 
-        result_text = response.output_text
+            print(
+                f"[Vision 완료] {filename} "
+                f"| {vision_time:.3f}초 "
+                f"| 비용: ${vision_cost:.8f}"
+            )
 
-        vision_receipt = json.loads(result_text)
+        except Exception as e:
 
-        vision_time = time.perf_counter() - start
+            print(
+                f"[Vision 오류] {filename} "
+                f"| {type(e).__name__}: {e}"
+            )
 
-        usage = response.usage
+            print(
+                f"[Vision 건너뜀] {filename}"
+            )
 
-        input_tokens = usage.input_tokens
-        output_tokens = usage.output_tokens
-
-        input_cost = (
-            input_tokens / 1_000_000
-        ) * 0.40
-
-        output_cost = (
-            output_tokens / 1_000_000
-        ) * 1.60
-
-        vision_cost = input_cost + output_cost
-
-        vision_results.append({
-            "filename": filename,
-            "receipt": vision_receipt,
-            "vision_time": round(vision_time, 3),
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "vision_cost": round(vision_cost, 8),
-        })
-
-        print(
-            f"[Vision 완료] {filename} "
-            f"| {vision_time:.3f}초 "
-            f"| 비용: ${vision_cost:.8f}"
-        )
+            continue
 
     return {
         "vision_results": vision_results
     }
 
 
-# ============================================================
-# Graph
-# ============================================================
-
 graph = StateGraph(ReceiptState)
-
 
 graph.add_node(
     "process_receipt",
-    process_receipt
+    process_receipt,
 )
 
 graph.add_node(
     "extract_receipt_data",
-    extract_receipt_data
+    extract_receipt_data,
 )
 
 graph.add_node(
     "extract_receipt_with_vision",
-    extract_receipt_with_vision
+    extract_receipt_with_vision,
 )
 
 
 graph.add_edge(
     START,
-    "process_receipt"
+    "process_receipt",
 )
 
 graph.add_edge(
     "process_receipt",
-    "extract_receipt_data"
+    "extract_receipt_data",
 )
 
 graph.add_edge(
     "extract_receipt_data",
-    "extract_receipt_with_vision"
+    "extract_receipt_with_vision",
 )
 
 graph.add_edge(
     "extract_receipt_with_vision",
-    END
+    END,
 )
 
 
