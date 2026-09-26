@@ -27,3 +27,12 @@ receipt_test_*.jpg
 *.njsproj
 *.sln
 *.sw?
+
+# Receipt images
+*.jpg
+*.jpeg
+*.png
+
+
+ocr_results_*.json
+!ground_truth.json
