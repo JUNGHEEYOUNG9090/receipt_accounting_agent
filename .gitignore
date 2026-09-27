@@ -36,3 +36,6 @@ receipt_test_*.jpg
 
 ocr_results_*.json
 !ground_truth.json
+
+# Evaluation data
+evaluation/
