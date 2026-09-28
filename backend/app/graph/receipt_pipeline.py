@@ -1,445 +1,441 @@
-import base64
 import json
 import os
-import time
+from collections import Counter
 from typing import TypedDict
 
-import requests
 from dotenv import load_dotenv
-from openai import OpenAI
 from langgraph.graph import StateGraph, START, END
+from openai import OpenAI
+
+from app.supabase_client import supabase
 
 
-load_dotenv()
+BASE_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")
+)
 
-OCR_SERVER_URL = os.getenv("OCR_SERVER_URL")
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-if not OCR_SERVER_URL:
-    raise RuntimeError("OCR_SERVER_URL이 .env에 설정되지 않았습니다.")
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-MODEL = "gpt-4.1-mini"
-
-
-class ReceiptState(TypedDict):
-    image_paths: list[str]
-    ocr_results: list[dict]
-    receipts: list[dict]
-    vision_results: list[dict]
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 
-def process_receipt(state: ReceiptState):
-    all_ocr_results = []
+CATEGORIES = [
+    "식사",
+    "카페/음료",
+    "식료품",
+    "주유",
+    "교통",
+    "생활용품",
+    "위생용품",
+    "의류",
+    "문구/사무용품",
+    "철물/공구",
+    "의료/약품",
+    "담배",
+    "기타",
+]
 
-    image_paths = state["image_paths"]
 
-    batch_size = 5
+class ReceiptState(TypedDict, total=False):
+    receipt_id: int
+    merchant_name: str
+    items: list
+    has_items: bool
+    already_classified: bool
+    category_name: str
+    category_id: int
+    item_categories: list
+    processing_type: str
+    error: str
 
-    for start_index in range(0, len(image_paths), batch_size):
 
-        batch = image_paths[
-            start_index:start_index + batch_size
-        ]
+def load_receipt(state: ReceiptState):
+    receipt_id = state["receipt_id"]
 
-        files = []
+    receipt_result = (
+        supabase
+        .table("receipts")
+        .select("id, merchant_name, category_id")
+        .eq("id", receipt_id)
+        .single()
+        .execute()
+    )
 
-        try:
-            for image_path in batch:
-                file = open(image_path, "rb")
+    receipt = receipt_result.data
 
-                files.append(
-                    (
-                        "files",
-                        (
-                            os.path.basename(image_path),
-                            file,
-                            "image/jpeg",
-                        ),
-                    )
-                )
+    if not receipt:
+        raise ValueError(
+            f"영수증을 찾을 수 없습니다. receipt_id={receipt_id}"
+        )
 
-            batch_number = (
-                start_index // batch_size
-            ) + 1
+    items_result = (
+        supabase
+        .table("receipt_items")
+        .select(
+            "id, item_name, quantity, unit_price, amount, category_id"
+        )
+        .eq("receipt_id", receipt_id)
+        .execute()
+    )
 
-            total_batches = (
-                len(image_paths) + batch_size - 1
-            ) // batch_size
+    items = items_result.data or []
+    has_items = len(items) > 0
 
-            print(
-                f"\n[OCR 시작] "
-                f"{batch_number}/{total_batches} "
-                f"({len(batch)}개)"
-            )
+    # 영수증 자체에 category_id가 있으면 이미 최종 분류 완료
+    if receipt.get("category_id") is not None:
+        already_classified = True
 
-            start = time.perf_counter()
+    # 품목이 있는 경우 모든 품목에 category_id가 있으면
+    # 이미 AI 분류가 끝난 것으로 판단
+    elif has_items:
+        already_classified = all(
+            item.get("category_id") is not None
+            for item in items
+        )
 
-            response = requests.post(
-                OCR_SERVER_URL,
-                files=files,
-                timeout=900,
-            )
-
-            response.raise_for_status()
-
-            ocr_data = response.json()
-
-            elapsed = time.perf_counter() - start
-
-            print(
-                f"[OCR 완료] "
-                f"{batch_number}/{total_batches} "
-                f"| {elapsed:.3f}초"
-            )
-
-            batch_results = ocr_data["files"]
-
-            all_ocr_results.extend(batch_results)
-
-            # 배치별 OCR 결과 저장
-            batch_result_file = (
-                f"ocr_results_batch_{batch_number:02d}.json"
-            )
-
-            with open(
-                batch_result_file,
-                "w",
-                encoding="utf-8",
-            ) as f:
-                json.dump(
-                    batch_results,
-                    f,
-                    ensure_ascii=False,
-                    indent=2,
-                )
-
-            print(
-                f"[OCR 결과 저장] "
-                f"{batch_result_file}"
-            )
-
-        finally:
-            for _, (_, file, _) in files:
-                file.close()
+    # 품목이 없는 경우 영수증 category_id가 있어야 분류 완료
+    else:
+        already_classified = False
 
     return {
-        "ocr_results": all_ocr_results
+        "merchant_name": receipt["merchant_name"],
+        "items": items,
+        "has_items": has_items,
+        "category_id": receipt.get("category_id"),
+        "already_classified": already_classified,
     }
 
 
-def extract_receipt_data(state: ReceiptState):
-    receipts = []
+def route_receipt(state: ReceiptState):
+    # 영수증 category_id가 이미 있으면 완전히 끝난 데이터
+    if state.get("category_id") is not None:
+        print(
+            f"[SKIP] receipt_id={state['receipt_id']} "
+            "이미 분류된 영수증입니다."
+        )
+        return "already_classified"
 
-    for index, ocr in enumerate(
-        state["ocr_results"],
-        start=1,
-    ):
+    # 품목이 있고 모든 품목에 category_id가 있으면
+    # OpenAI 호출 없이 기존 품목 분류 결과를 이용
+    if state["has_items"] and state["already_classified"]:
+        print(
+            f"[RECEIPT CATEGORY] receipt_id={state['receipt_id']} "
+            "기존 품목 분류 결과로 영수증 카테고리를 설정합니다."
+        )
+        return "set_receipt_category_from_items"
 
-        filename = ocr["filename"]
+    # 품목이 있으면 상품명 기준 AI 분류
+    if state["has_items"]:
+        print(
+            f"[CLASSIFY] receipt_id={state['receipt_id']} "
+            "품목 기준으로 분류합니다."
+        )
+        return "classify_items"
 
-        print(f"\n[LLM 시작] {filename}")
+    # 품목이 없으면 가맹점명 기준 AI 분류
+    print(
+        f"[CLASSIFY] receipt_id={state['receipt_id']} "
+        "가맹점명 기준으로 분류합니다."
+    )
+    return "classify_receipt"
 
-        try:
-            prompt = f"""
-다음은 영수증 OCR 결과입니다.
 
-OCR 결과:
-{ocr["ocr_text"]}
+def classify_items(state: ReceiptState):
+    items = state["items"]
 
-OCR 결과를 분석하여 영수증 정보를 JSON으로 정리하세요.
+    item_names = [
+        item["item_name"]
+        for item in items
+        if item.get("item_name")
+    ]
 
-다음 정보를 추출하세요.
+    if not item_names:
+        return {
+            "error": "품목명은 존재하지 않습니다.",
+            "processing_type": "item_classification",
+        }
 
-- merchant_name: 가맹점명
-- transaction_date: 거래일시
-- items: 상품 목록
-  - name: 상품명
-  - unit_price: 단가
-  - quantity: 수량
-  - amount: 금액
-- supply_amount: 공급가액
-- vat: 부가세
-- total_amount: 합계금액
+    prompt = f"""
+영수증의 상품명을 보고 지출 카테고리를 분류하세요.
 
-중요한 규칙:
+사용 가능한 카테고리는 반드시 다음 13개 중 하나입니다.
 
-1. items는 반드시 배열([])로 반환하세요.
-2. 상품이 없거나 확인하기 어려운 경우 items는 빈 배열 []을 사용하세요.
-3. OCR 결과에 상품 항목이 확인되면 포함하세요.
-4. 상품명, 단가, 수량, 금액 중 확인할 수 없는 값은 null로 처리하세요.
-5. OCR 결과에 없는 정보를 임의로 만들어내지 마세요.
-6. supply_amount, vat, total_amount는 계산하지 말고 OCR에서 확인되는 값을 사용하세요.
-7. JSON 객체 하나만 반환하세요.
-8. 설명이나 추가 문장을 출력하지 마세요.
+{json.dumps(CATEGORIES, ensure_ascii=False)}
 
-반환 형식:
+상품명:
+{json.dumps(item_names, ensure_ascii=False)}
 
+각 상품에 대해 가장 적절한 카테고리를 하나씩 선택하세요.
+
+반드시 JSON 배열만 반환하세요.
+
+형식:
+[
+  {{
+    "item_name": "상품명",
+    "category": "카테고리"
+  }}
+]
+"""
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt,
+    )
+
+    result = json.loads(response.output_text)
+
+    return {
+        "item_categories": result,
+        "processing_type": "item_classification",
+    }
+
+
+def classify_receipt(state: ReceiptState):
+    merchant_name = state["merchant_name"]
+
+    prompt = f"""
+영수증의 가맹점명을 보고 지출 카테고리를 분류하세요.
+
+사용 가능한 카테고리는 반드시 다음 13개 중 하나입니다.
+
+{json.dumps(CATEGORIES, ensure_ascii=False)}
+
+가맹점명:
+{merchant_name}
+
+상품 정보가 없는 영수증이므로 가맹점명을 중심으로 판단하세요.
+
+예:
+시골밥상 → 식사
+하나철물 → 철물/공구
+연희연세약국 → 의료/약품
+고양(하)주유소 → 주유
+
+반드시 JSON 객체 하나만 반환하세요.
+
+형식:
 {{
-  "merchant_name": "...",
-  "transaction_date": "...",
-  "items": [
-    {{
-      "name": "...",
-      "unit_price": 0,
-      "quantity": 1,
-      "amount": 0
-    }}
-  ],
-  "supply_amount": 0,
-  "vat": 0,
-  "total_amount": 0
+  "category": "카테고리"
 }}
 """
 
-            start = time.perf_counter()
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt,
+    )
 
-            response = client.responses.create(
-                model=MODEL,
-                input=prompt,
-            )
-
-            result_text = response.output_text
-
-            receipt = json.loads(result_text)
-
-            llm_time = time.perf_counter() - start
-
-            usage = response.usage
-
-            input_tokens = usage.input_tokens
-            output_tokens = usage.output_tokens
-
-            input_cost = (
-                (input_tokens / 1_000_000) * 0.40
-            )
-
-            output_cost = (
-                (output_tokens / 1_000_000) * 1.60
-            )
-
-            llm_cost = input_cost + output_cost
-
-            receipts.append(
-                {
-                    "filename": filename,
-                    "receipt": receipt,
-                    "llm_time": round(llm_time, 3),
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "llm_cost": round(llm_cost, 8),
-                }
-            )
-
-            print(
-                f"[LLM 완료] {filename} "
-                f"| {llm_time:.3f}초 "
-                f"| 비용: ${llm_cost:.8f}"
-            )
-
-        except Exception as e:
-
-            print(
-                f"[LLM 오류] {filename} "
-                f"| {type(e).__name__}: {e}"
-            )
-
-            print(
-                f"[LLM 건너뜀] {filename}"
-            )
-
-            continue
+    result = json.loads(response.output_text)
 
     return {
-        "receipts": receipts
+        "category_name": result["category"],
+        "processing_type": "receipt_classification",
     }
 
 
-def extract_receipt_with_vision(state: ReceiptState):
-    vision_results = []
+def save_item_categories(state: ReceiptState):
+    item_categories = state.get("item_categories", [])
 
-    for image_path in state["image_paths"]:
+    category_result = (
+        supabase
+        .table("categories")
+        .select("id, name")
+        .execute()
+    )
 
-        filename = os.path.basename(image_path)
-
-        print(f"\n[Vision 시작] {filename}")
-
-        try:
-            start = time.perf_counter()
-
-            with open(image_path, "rb") as image_file:
-                image_base64 = base64.b64encode(
-                    image_file.read()
-                ).decode("utf-8")
-
-            prompt = """
-이미지에 있는 영수증을 직접 보고 정보를 추출하세요.
-
-다음 정보를 JSON으로 정리하세요.
-
-- merchant_name: 가맹점명
-- transaction_date: 거래일시
-- items: 상품 목록
-  - name: 상품명
-  - unit_price: 단가
-  - quantity: 수량
-  - amount: 금액
-- supply_amount: 공급가액
-- vat: 부가세
-- total_amount: 합계금액
-
-중요한 규칙:
-
-1. 이미지에 실제로 보이는 정보만 사용하세요.
-2. OCR 결과를 참고하지 말고 이미지 자체를 기준으로 판단하세요.
-3. items는 반드시 배열([])로 반환하세요.
-4. 상품명, 단가, 수량, 금액 중 확인할 수 없는 값은 null로 처리하세요.
-5. 숫자는 이미지에 표시된 값을 사용하세요.
-6. supply_amount, vat, total_amount를 임의로 계산하지 마세요.
-7. 이미지에서 확인할 수 없는 값은 null로 처리하세요.
-8. JSON 객체 하나만 반환하세요.
-9. 설명이나 추가 문장을 출력하지 마세요.
-
-반환 형식:
-
-{
-  "merchant_name": "...",
-  "transaction_date": "...",
-  "items": [
-    {
-      "name": "...",
-      "unit_price": 0,
-      "quantity": 1,
-      "amount": 0
+    category_map = {
+        category["name"]: category["id"]
+        for category in category_result.data
     }
-  ],
-  "supply_amount": 0,
-  "vat": 0,
-  "total_amount": 0
-}
-"""
 
-            response = client.responses.create(
-                model=MODEL,
-                input=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "input_text",
-                                "text": prompt,
-                            },
-                            {
-                                "type": "input_image",
-                                "image_url": (
-                                    f"data:image/jpeg;base64,{image_base64}"
-                                ),
-                                "detail": "high",
-                            },
-                        ],
-                    }
-                ],
+    items = state["items"]
+
+    for result in item_categories:
+        item_name = result["item_name"]
+        category_name = result["category"]
+
+        category_id = category_map.get(category_name)
+
+        if category_id is None:
+            raise ValueError(
+                f"존재하지 않는 카테고리입니다: {category_name}"
             )
 
-            result_text = response.output_text
+        for item in items:
+            if item["item_name"] == item_name:
+                (
+                    supabase
+                    .table("receipt_items")
+                    .update({
+                        "category_id": category_id
+                    })
+                    .eq("id", item["id"])
+                    .execute()
+                )
 
-            vision_receipt = json.loads(result_text)
+    return {}
 
-            vision_time = time.perf_counter() - start
 
-            usage = response.usage
+def set_receipt_category_from_items(state: ReceiptState):
+    """
+    이미 receipt_items에 저장된 category_id를 이용해
+    receipts.category_id를 결정한다.
 
-            input_tokens = usage.input_tokens
-            output_tokens = usage.output_tokens
+    가장 많이 등장한 카테고리를 대표 카테고리로 사용한다.
+    """
 
-            input_cost = (
-                (input_tokens / 1_000_000) * 0.40
-            )
+    items = state["items"]
 
-            output_cost = (
-                (output_tokens / 1_000_000) * 1.60
-            )
+    category_ids = [
+        item["category_id"]
+        for item in items
+        if item.get("category_id") is not None
+    ]
 
-            vision_cost = input_cost + output_cost
+    # 방금 classify_items → save_item_categories를 거친 경우
+    # state["items"]에는 이전 category_id가 들어있을 수 있으므로
+    # DB에서 최신 값을 다시 조회한다.
+    items_result = (
+        supabase
+        .table("receipt_items")
+        .select("id, category_id")
+        .eq("receipt_id", state["receipt_id"])
+        .execute()
+    )
 
-            vision_results.append(
-                {
-                    "filename": filename,
-                    "receipt": vision_receipt,
-                    "vision_time": round(
-                        vision_time,
-                        3,
-                    ),
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "vision_cost": round(
-                        vision_cost,
-                        8,
-                    ),
-                }
-            )
+    latest_items = items_result.data or []
 
-            print(
-                f"[Vision 완료] {filename} "
-                f"| {vision_time:.3f}초 "
-                f"| 비용: ${vision_cost:.8f}"
-            )
+    category_ids = [
+        item["category_id"]
+        for item in latest_items
+        if item.get("category_id") is not None
+    ]
 
-        except Exception as e:
+    if not category_ids:
+        raise ValueError(
+            f"receipt_id={state['receipt_id']} "
+            "품목에 저장된 category_id가 없습니다."
+        )
 
-            print(
-                f"[Vision 오류] {filename} "
-                f"| {type(e).__name__}: {e}"
-            )
+    category_id = Counter(category_ids).most_common(1)[0][0]
 
-            print(
-                f"[Vision 건너뜀] {filename}"
-            )
+    category_result = (
+        supabase
+        .table("categories")
+        .select("id, name")
+        .eq("id", category_id)
+        .single()
+        .execute()
+    )
 
-            continue
+    category = category_result.data
+
+    if not category:
+        raise ValueError(
+            f"카테고리를 찾을 수 없습니다. category_id={category_id}"
+        )
 
     return {
-        "vision_results": vision_results
+        "category_id": category["id"],
+        "category_name": category["name"],
     }
 
 
-graph = StateGraph(ReceiptState)
+def save_receipt_category(state: ReceiptState):
+    category_name = state["category_name"]
 
-graph.add_node(
-    "process_receipt",
-    process_receipt,
+    category_result = (
+        supabase
+        .table("categories")
+        .select("id")
+        .eq("name", category_name)
+        .single()
+        .execute()
+    )
+
+    category = category_result.data
+
+    if not category:
+        raise ValueError(
+            f"존재하지 않는 카테고리입니다: {category_name}"
+        )
+
+    category_id = category["id"]
+
+    (
+        supabase
+        .table("receipts")
+        .update({
+            "category_id": category_id
+        })
+        .eq("id", state["receipt_id"])
+        .execute()
+    )
+
+    return {
+        "category_id": category_id
+    }
+
+
+graph_builder = StateGraph(ReceiptState)
+
+graph_builder.add_node("load_receipt", load_receipt)
+graph_builder.add_node("classify_items", classify_items)
+graph_builder.add_node("classify_receipt", classify_receipt)
+graph_builder.add_node("save_item_categories", save_item_categories)
+graph_builder.add_node(
+    "set_receipt_category_from_items",
+    set_receipt_category_from_items,
+)
+graph_builder.add_node(
+    "save_receipt_category",
+    save_receipt_category,
 )
 
-graph.add_node(
-    "extract_receipt_data",
-    extract_receipt_data,
-)
-
-graph.add_node(
-    "extract_receipt_with_vision",
-    extract_receipt_with_vision,
-)
-
-
-graph.add_edge(
+graph_builder.add_edge(
     START,
-    "process_receipt",
+    "load_receipt",
 )
 
-graph.add_edge(
-    "process_receipt",
-    "extract_receipt_data",
+graph_builder.add_conditional_edges(
+    "load_receipt",
+    route_receipt,
+    {
+        "already_classified": END,
+        "set_receipt_category_from_items":
+            "set_receipt_category_from_items",
+        "classify_items":
+            "classify_items",
+        "classify_receipt":
+            "classify_receipt",
+    },
 )
 
-graph.add_edge(
-    "extract_receipt_data",
-    "extract_receipt_with_vision",
+graph_builder.add_edge(
+    "classify_items",
+    "save_item_categories",
 )
 
-graph.add_edge(
-    "extract_receipt_with_vision",
+graph_builder.add_edge(
+    "save_item_categories",
+    "set_receipt_category_from_items",
+)
+
+graph_builder.add_edge(
+    "set_receipt_category_from_items",
+    "save_receipt_category",
+)
+
+graph_builder.add_edge(
+    "classify_receipt",
+    "save_receipt_category",
+)
+
+graph_builder.add_edge(
+    "save_receipt_category",
     END,
 )
 
-
-receipt_pipeline = graph.compile()
+receipt_graph = graph_builder.compile()
