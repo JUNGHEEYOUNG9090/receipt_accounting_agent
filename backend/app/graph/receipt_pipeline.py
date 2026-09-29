@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from collections import Counter
 from typing import TypedDict
 
@@ -20,6 +21,60 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
+def load_vision_receipt(filename: str):
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "evaluation"
+        / "vision_results.json"
+    )
+
+    with open(path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    for result in data["vision_results"]:
+        if result["filename"] == filename:
+            receipt = result["receipt"]
+
+            items = [
+                {
+                    "id": index,
+                    "item_name": item["name"],
+                    "quantity": item.get("quantity"),
+                    "unit_price": item.get("unit_price"),
+                    "amount": item.get("amount"),
+                    "category_id": None,
+                }
+                for index, item in enumerate(
+                    receipt.get("items", []),
+                    start=1,
+                )
+            ]
+
+            return {
+                "source": "vision",
+                "receipt_id": None,
+
+                "merchant_name": receipt["merchant_name"],
+                "transaction_date": receipt["transaction_date"],
+                "supply_amount": receipt.get("supply_amount"),
+                "vat": receipt.get("vat"),
+                "total_amount": receipt["total_amount"],
+                "discount_amount": receipt.get("discount_amount") or 0,
+                "payment_method": None,
+                "category_id": None,
+
+                "items": items,
+
+                # LangGraph route_receipt()에서 사용하는 값
+                "has_items": bool(items),
+                "already_classified": False,
+
+                "item_categories": [],
+            }
+
+    raise ValueError(
+        f"Vision 결과를 찾을 수 없습니다: {filename}"
+    )
 
 CATEGORIES = [
     "식사",
@@ -39,25 +94,48 @@ CATEGORIES = [
 
 
 class ReceiptState(TypedDict, total=False):
+    source: str
     receipt_id: int
+
     merchant_name: str
+    transaction_date: str
+    supply_amount: int
+    vat: int
+    total_amount: int
+    discount_amount: int
+    payment_method: str
+
     items: list
+
     has_items: bool
     already_classified: bool
+
     category_name: str
     category_id: int
+
     item_categories: list
+
+    categories: list
+
     processing_type: str
     error: str
 
 
 def load_receipt(state: ReceiptState):
+
+    if state.get("source") == "vision":
+        return state
+
     receipt_id = state["receipt_id"]
 
     receipt_result = (
         supabase
         .table("receipts")
-        .select("id, merchant_name, category_id")
+        .select(
+            "id, merchant_name, transaction_date, "
+            "supply_amount, vat, total_amount, "
+            "discount_amount, payment_method, category_id"
+        )
         .eq("id", receipt_id)
         .single()
         .execute()
@@ -83,24 +161,26 @@ def load_receipt(state: ReceiptState):
     items = items_result.data or []
     has_items = len(items) > 0
 
-    # 영수증 자체에 category_id가 있으면 이미 최종 분류 완료
     if receipt.get("category_id") is not None:
         already_classified = True
 
-    # 품목이 있는 경우 모든 품목에 category_id가 있으면
-    # 이미 AI 분류가 끝난 것으로 판단
     elif has_items:
         already_classified = all(
             item.get("category_id") is not None
             for item in items
         )
 
-    # 품목이 없는 경우 영수증 category_id가 있어야 분류 완료
     else:
         already_classified = False
 
     return {
         "merchant_name": receipt["merchant_name"],
+        "transaction_date": receipt["transaction_date"],
+        "supply_amount": receipt.get("supply_amount"),
+        "vat": receipt.get("vat"),
+        "total_amount": receipt["total_amount"],
+        "discount_amount": receipt.get("discount_amount") or 0,
+        "payment_method": receipt.get("payment_method"),
         "items": items,
         "has_items": has_items,
         "category_id": receipt.get("category_id"),
@@ -109,7 +189,8 @@ def load_receipt(state: ReceiptState):
 
 
 def route_receipt(state: ReceiptState):
-    # 영수증 category_id가 이미 있으면 완전히 끝난 데이터
+    # 영수증 자체에 이미 category_id가 있으면
+    # 기존 DB 결과를 사용한다.
     if state.get("category_id") is not None:
         print(
             f"[SKIP] receipt_id={state['receipt_id']} "
@@ -118,13 +199,13 @@ def route_receipt(state: ReceiptState):
         return "already_classified"
 
     # 품목이 있고 모든 품목에 category_id가 있으면
-    # OpenAI 호출 없이 기존 품목 분류 결과를 이용
+    # OpenAI를 다시 호출하지 않는다.
     if state["has_items"] and state["already_classified"]:
         print(
             f"[RECEIPT CATEGORY] receipt_id={state['receipt_id']} "
-            "기존 품목 분류 결과로 영수증 카테고리를 설정합니다."
+            "기존 품목 분류 결과를 사용합니다."
         )
-        return "set_receipt_category_from_items"
+        return "build_result"
 
     # 품목이 있으면 상품명 기준 AI 분류
     if state["has_items"]:
@@ -185,7 +266,15 @@ def classify_items(state: ReceiptState):
         input=prompt,
     )
 
-    result = json.loads(response.output_text)
+    try:
+        result = json.loads(response.output_text)
+    except json.JSONDecodeError:
+        raise ValueError(
+            f"LLM이 올바른 JSON을 반환하지 않았습니다: "
+            f"{response.output_text!r}"
+        )
+
+    print("LLM 응답:", repr(response.output_text))
 
     return {
         "item_categories": result,
@@ -229,15 +318,25 @@ def classify_receipt(state: ReceiptState):
 
     result = json.loads(response.output_text)
 
+    print("LLM 분류 결과:", result)
+
     return {
         "category_name": result["category"],
         "processing_type": "receipt_classification",
     }
 
 
-def save_item_categories(state: ReceiptState):
-    item_categories = state.get("item_categories", [])
+def build_result(state: ReceiptState):
+    """
+    AI 분류 결과 또는 기존 DB 분류 결과를
+    프런트에서 사용할 수 있는 형태로 만든다.
 
+    여기서는 DB에 저장하지 않는다.
+    """
+
+    items = state.get("items", [])
+
+    # categories 테이블 조회
     category_result = (
         supabase
         .table("categories")
@@ -246,196 +345,224 @@ def save_item_categories(state: ReceiptState):
     )
 
     category_map = {
-        category["name"]: category["id"]
-        for category in category_result.data
+        category["id"]: category["name"]
+        for category in (category_result.data or [])
     }
 
-    items = state["items"]
+    category_name_to_id = {
+        category["name"]: category["id"]
+        for category in (category_result.data or [])
+    }
 
-    for result in item_categories:
-        item_name = result["item_name"]
-        category_name = result["category"]
+    # --------------------------------------------------
+    # 1. 이미 DB에 분류된 품목이 있는 경우
+    # --------------------------------------------------
 
-        category_id = category_map.get(category_name)
+    if state.get("already_classified") and items:
 
-        if category_id is None:
-            raise ValueError(
-                f"존재하지 않는 카테고리입니다: {category_name}"
-            )
+        grouped = {}
 
         for item in items:
-            if item["item_name"] == item_name:
-                (
-                    supabase
-                    .table("receipt_items")
-                    .update({
-                        "category_id": category_id
-                    })
-                    .eq("id", item["id"])
-                    .execute()
+            category_id = item.get("category_id")
+
+            if category_id is not None:
+                category_name = category_map.get(
+                    category_id,
+                    "기타"
+                )
+            else:
+                # 영수증 category_id만 있고
+                # 품목 category_id가 없는 경우
+                category_id = state.get("category_id")
+                category_name = category_map.get(
+                    category_id,
+                    "기타"
                 )
 
-    return {}
+            if category_name not in grouped:
+                grouped[category_name] = {
+                    "name": category_name,
+                    "categoryId": category_id,
+                    "amount": 0,
+                    "items": [],
+                }
 
+            amount = item.get("amount") or 0
 
-def set_receipt_category_from_items(state: ReceiptState):
-    """
-    이미 receipt_items에 저장된 category_id를 이용해
-    receipts.category_id를 결정한다.
+            grouped[category_name]["items"].append({
+                "id": item["id"],
+                "name": item["item_name"],
+                "merchantName": state["merchant_name"],
+                "quantity": item.get("quantity"),
+                "unitPrice": item.get("unit_price"),
+                "amount": amount,
+                "categoryId": category_id,
+            })
+        for category in grouped.values():
+            category["amount"] = state["total_amount"]
 
-    가장 많이 등장한 카테고리를 대표 카테고리로 사용한다.
-    """
+        return {
+            "merchant_name": state["merchant_name"],
+            "transaction_date": state["transaction_date"],
+            "supply_amount": state.get("supply_amount"),
+            "vat": state.get("vat"),
+            "total_amount": state["total_amount"],
+            "discount_amount": state.get("discount_amount", 0),
+            "payment_method": state.get("payment_method"),
+            "category_id": state.get("category_id"),
+            "categories": list(grouped.values()),
+        }
 
-    items = state["items"]
+    # --------------------------------------------------
+    # 2. 새롭게 AI가 품목을 분류한 경우
+    # --------------------------------------------------
 
-    category_ids = [
-        item["category_id"]
-        for item in items
-        if item.get("category_id") is not None
-    ]
+    item_categories = state.get("item_categories", [])
 
-    # 방금 classify_items → save_item_categories를 거친 경우
-    # state["items"]에는 이전 category_id가 들어있을 수 있으므로
-    # DB에서 최신 값을 다시 조회한다.
-    items_result = (
-        supabase
-        .table("receipt_items")
-        .select("id, category_id")
-        .eq("receipt_id", state["receipt_id"])
-        .execute()
+    if item_categories:
+
+        classification_map = {
+            result["item_name"]: result["category"]
+            for result in item_categories
+        }
+
+        grouped = {}
+
+        for item in items:
+            item_name = item["item_name"]
+
+            category_name = classification_map.get(
+                item_name,
+                "기타"
+            )
+
+            category_id = category_name_to_id.get(
+                category_name
+            )
+
+            if category_name not in grouped:
+                grouped[category_name] = {
+                    "name": category_name,
+                    "categoryId": category_id,
+                    "amount": 0,
+                    "items": [],
+                }
+
+            amount = item.get("amount") or 0
+
+            grouped[category_name]["items"].append({
+                "id": item["id"],
+                "name": item_name,
+                "merchantName": state["merchant_name"],
+                "quantity": item.get("quantity"),
+                "unitPrice": item.get("unit_price"),
+                "amount": amount,
+                "categoryId": category_id,
+            })
+
+        for category in grouped.values():
+            category["amount"] = state["total_amount"]
+
+        return {
+            "merchant_name": state["merchant_name"],
+            "transaction_date": state["transaction_date"],
+            "supply_amount": state.get("supply_amount"),
+            "vat": state.get("vat"),
+            "total_amount": state["total_amount"],
+            "discount_amount": state.get("discount_amount", 0),
+            "payment_method": state.get("payment_method"),
+            "category_id": state.get("category_id"),
+            "categories": list(grouped.values()),
+        }
+
+    # --------------------------------------------------
+    # 3. 품목이 없는 영수증
+    # --------------------------------------------------
+
+    category_name = state.get(
+        "category_name",
+        "기타"
     )
 
-    latest_items = items_result.data or []
-
-    category_ids = [
-        item["category_id"]
-        for item in latest_items
-        if item.get("category_id") is not None
-    ]
-
-    if not category_ids:
-        raise ValueError(
-            f"receipt_id={state['receipt_id']} "
-            "품목에 저장된 category_id가 없습니다."
-        )
-
-    category_id = Counter(category_ids).most_common(1)[0][0]
-
-    category_result = (
-        supabase
-        .table("categories")
-        .select("id, name")
-        .eq("id", category_id)
-        .single()
-        .execute()
+    category_id = category_name_to_id.get(
+        category_name
     )
-
-    category = category_result.data
-
-    if not category:
-        raise ValueError(
-            f"카테고리를 찾을 수 없습니다. category_id={category_id}"
-        )
 
     return {
-        "category_id": category["id"],
-        "category_name": category["name"],
-    }
-
-
-def save_receipt_category(state: ReceiptState):
-    category_name = state["category_name"]
-
-    category_result = (
-        supabase
-        .table("categories")
-        .select("id")
-        .eq("name", category_name)
-        .single()
-        .execute()
-    )
-
-    category = category_result.data
-
-    if not category:
-        raise ValueError(
-            f"존재하지 않는 카테고리입니다: {category_name}"
-        )
-
-    category_id = category["id"]
-
-    (
-        supabase
-        .table("receipts")
-        .update({
-            "category_id": category_id
-        })
-        .eq("id", state["receipt_id"])
-        .execute()
-    )
-
-    return {
-        "category_id": category_id
+        "merchant_name": state["merchant_name"],
+        "transaction_date": state["transaction_date"],
+        "supply_amount": state.get("supply_amount"),
+        "vat": state.get("vat"),
+        "total_amount": state["total_amount"],
+        "discount_amount": state.get("discount_amount", 0),
+        "payment_method": state.get("payment_method"),
+        "category_id": category_id,
+        "categories": [
+            {
+                "name": category_name,
+                "categoryId": category_id,
+                "amount": state["total_amount"],
+                "items": [],
+            }
+        ],
     }
 
 
 graph_builder = StateGraph(ReceiptState)
 
-graph_builder.add_node("load_receipt", load_receipt)
-graph_builder.add_node("classify_items", classify_items)
-graph_builder.add_node("classify_receipt", classify_receipt)
-graph_builder.add_node("save_item_categories", save_item_categories)
 graph_builder.add_node(
-    "set_receipt_category_from_items",
-    set_receipt_category_from_items,
+    "load_receipt",
+    load_receipt
 )
+
 graph_builder.add_node(
-    "save_receipt_category",
-    save_receipt_category,
+    "classify_items",
+    classify_items
 )
+
+graph_builder.add_node(
+    "classify_receipt",
+    classify_receipt
+)
+
+graph_builder.add_node(
+    "build_result",
+    build_result
+)
+
 
 graph_builder.add_edge(
     START,
     "load_receipt",
 )
 
+
 graph_builder.add_conditional_edges(
     "load_receipt",
     route_receipt,
     {
-        "already_classified": END,
-        "set_receipt_category_from_items":
-            "set_receipt_category_from_items",
-        "classify_items":
-            "classify_items",
-        "classify_receipt":
-            "classify_receipt",
+        "already_classified": "build_result",
+        "build_result": "build_result",
+        "classify_items": "classify_items",
+        "classify_receipt": "classify_receipt",
     },
 )
 
+
 graph_builder.add_edge(
     "classify_items",
-    "save_item_categories",
-)
-
-graph_builder.add_edge(
-    "save_item_categories",
-    "set_receipt_category_from_items",
-)
-
-graph_builder.add_edge(
-    "set_receipt_category_from_items",
-    "save_receipt_category",
+    "build_result",
 )
 
 graph_builder.add_edge(
     "classify_receipt",
-    "save_receipt_category",
+    "build_result",
 )
 
 graph_builder.add_edge(
-    "save_receipt_category",
+    "build_result",
     END,
 )
+
 
 receipt_graph = graph_builder.compile()
