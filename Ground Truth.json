@@ -1,0 +1,825 @@
+{
+  "vision_results": [
+    {
+      "filename": "receipt_001.jpg",
+      "receipt": {
+        "merchant_name": "동태마을",
+        "transaction_date": "2026-07-17 13:00:55",
+        "items": [
+          {
+            "name": "동태탕",
+            "unit_price": 11000,
+            "quantity": 5,
+            "amount": 55000
+          },
+          {
+            "name": "김치말이국수",
+            "unit_price": 9000,
+            "quantity": 1,
+            "amount": 9000
+          },
+          {
+            "name": "공기밥",
+            "unit_price": 1000,
+            "quantity": 1,
+            "amount": 1000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 59092,
+        "vat": 5908,
+        "total_amount": 65000
+      },
+      "vision_time": 4.545,
+      "input_tokens": 2878,
+      "output_tokens": 194,
+      "vision_cost": 0.0014616
+    },
+    {
+      "filename": "receipt_002.jpg",
+      "receipt": {
+        "merchant_name": "SM하이플러스",
+        "transaction_date": "2026/07/17 17:20:48",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": null,
+        "vat": null,
+        "total_amount": 50000
+      },
+      "vision_time": 4.567,
+      "input_tokens": 2878,
+      "output_tokens": 70,
+      "vision_cost": 0.0012632
+    },
+    {
+      "filename": "receipt_003.jpg",
+      "receipt": {
+        "merchant_name": "엔제리너스 롯데시네인천아시아드점",
+        "transaction_date": "2026/07/15 12:44:25",
+        "items": [
+          {
+            "name": "너티아메리카노IR",
+            "unit_price": 5300,
+            "quantity": 4,
+            "amount": 21200
+          },
+          {
+            "name": "너티아메리카노IL",
+            "unit_price": 6100,
+            "quantity": 1,
+            "amount": 6100
+          },
+          {
+            "name": "고흥유자티IR",
+            "unit_price": 5500,
+            "quantity": 1,
+            "amount": 5500
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 29819,
+        "vat": 2981,
+        "total_amount": 32800
+      },
+      "vision_time": 4.721,
+      "input_tokens": 2878,
+      "output_tokens": 211,
+      "vision_cost": 0.0014888
+    },
+    {
+      "filename": "receipt_004.jpg",
+      "receipt": {
+        "merchant_name": "서광할인마트",
+        "transaction_date": "2026-07-15 12:31",
+        "items": [
+          {
+            "name": "목기골드 300개",
+            "unit_price": 58000,
+            "quantity": 1,
+            "amount": 58000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 52727,
+        "vat": 5273,
+        "total_amount": 58000
+      },
+      "vision_time": 2.564,
+      "input_tokens": 2878,
+      "output_tokens": 115,
+      "vision_cost": 0.0013352
+    },
+    {
+      "filename": "receipt_005.jpg",
+      "receipt": {
+        "merchant_name": "시골밥상",
+        "transaction_date": "26/07/16 12:10:27",
+        "items": [],
+        "discount_amount": null,
+        "supply_amount": 124546,
+        "vat": 32454,
+        "total_amount": 157000
+      },
+      "vision_time": 2.605,
+      "input_tokens": 2878,
+      "output_tokens": 72,
+      "vision_cost": 0.0012664
+    },
+    {
+      "filename": "receipt_006.jpg",
+      "receipt": {
+        "merchant_name": "설산강",
+        "transaction_date": "26-07-14 12:39:36",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 58000,
+        "vat": 5000,
+        "total_amount": 63000
+      },
+      "vision_time": 31.919,
+      "input_tokens": 2878,
+      "output_tokens": 71,
+      "vision_cost": 0.0012648
+    },
+    {
+      "filename": "receipt_007.jpg",
+      "receipt": {
+        "merchant_name": "이래농주상사",
+        "transaction_date": "26/07/14 10:59:44",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 5455,
+        "vat": 545,
+        "total_amount": 6000
+      },
+      "vision_time": 78.55,
+      "input_tokens": 2878,
+      "output_tokens": 73,
+      "vision_cost": 0.001268
+    },
+    {
+      "filename": "receipt_008.jpg",
+      "receipt": {
+        "merchant_name": "고양(하)주유소",
+        "transaction_date": "2026-07-14 17:16:54",
+        "items": [
+          {
+            "name": "휘발유",
+            "unit_price": 1845,
+            "quantity": 32.52,
+            "amount": 60000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 54545,
+        "vat": 5455,
+        "total_amount": 60000
+      },
+      "vision_time": 9.292,
+      "input_tokens": 2878,
+      "output_tokens": 122,
+      "vision_cost": 0.0013464
+    },
+    {
+      "filename": "receipt_009.jpg",
+      "receipt": {
+        "merchant_name": "세븐일레븐 인천서구청점#58092",
+        "transaction_date": "2026-07-07 07:58:18",
+        "items": [
+          {
+            "name": "PB)3구3M멀티탭_H",
+            "unit_price": 17500,
+            "quantity": 1,
+            "amount": 17500
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 15909,
+        "vat": 1591,
+        "total_amount": 17500
+      },
+      "vision_time": 3.963,
+      "input_tokens": 2878,
+      "output_tokens": 132,
+      "vision_cost": 0.0013624
+    },
+    {
+      "filename": "receipt_010.jpg",
+      "receipt": {
+        "merchant_name": "복성원",
+        "transaction_date": "2023/07/09 12:21:15",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 57273,
+        "vat": 5727,
+        "total_amount": 63000
+      },
+      "vision_time": 3.429,
+      "input_tokens": 2878,
+      "output_tokens": 72,
+      "vision_cost": 0.0012664
+    },
+    {
+      "filename": "receipt_011.jpg",
+      "receipt": {
+        "merchant_name": "하나철물",
+        "transaction_date": "26/07/13 09:22:13",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 18000,
+        "vat": 1800,
+        "total_amount": 19800
+      },
+      "vision_time": 10.398,
+      "input_tokens": 2878,
+      "output_tokens": 76,
+      "vision_cost": 0.0012728
+    },
+    {
+      "filename": "receipt_012.jpg",
+      "receipt": {
+        "merchant_name": "하나철물",
+        "transaction_date": "26/07/06 13:21:01",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 36000,
+        "vat": 3600,
+        "total_amount": 39600
+      },
+      "vision_time": 18.6,
+      "input_tokens": 2878,
+      "output_tokens": 72,
+      "vision_cost": 0.0012664
+    },
+    {
+      "filename": "receipt_013.jpg",
+      "receipt": {
+        "merchant_name": "고양(하)주유소",
+        "transaction_date": "2026-07-06 17:16:07",
+        "items": [
+          {
+            "name": "휘발유",
+            "unit_price": 1845,
+            "quantity": 27.1,
+            "amount": 50000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 45455,
+        "vat": 4545,
+        "total_amount": 50000
+      },
+      "vision_time": 20.787,
+      "input_tokens": 2878,
+      "output_tokens": 118,
+      "vision_cost": 0.00134
+    },
+    {
+      "filename": "receipt_014.jpg",
+      "receipt": {
+        "merchant_name": "채운당",
+        "transaction_date": "2026-07-02 13:11:21",
+        "items": [
+          {
+            "name": "고체홍삼캡(섭삼)",
+            "unit_price": 18900,
+            "quantity": 5,
+            "amount": 94500
+          },
+          {
+            "name": "면반육수",
+            "unit_price": 1000,
+            "quantity": 1,
+            "amount": 1000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 86818,
+        "vat": 8682,
+        "total_amount": 95500
+      },
+      "vision_time": 36.193,
+      "input_tokens": 2878,
+      "output_tokens": 159,
+      "vision_cost": 0.0014056
+    },
+    {
+      "filename": "receipt_015.jpg",
+      "receipt": {
+        "merchant_name": "홈마트(심곡)",
+        "transaction_date": "26-06-27 12:00",
+        "items": [
+          {
+            "name": "맥심모카골드 280T",
+            "unit_price": 55800,
+            "quantity": 1,
+            "amount": 55800
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 50728,
+        "vat": 5072,
+        "total_amount": 55800
+      },
+      "vision_time": 2.734,
+      "input_tokens": 2878,
+      "output_tokens": 120,
+      "vision_cost": 0.0013432
+    },
+    {
+      "filename": "receipt_016.jpg",
+      "receipt": {
+        "merchant_name": "(주)서울에너지 서인천주유소",
+        "transaction_date": "2026년06월26일 17:15:11",
+        "items": [
+          {
+            "name": "휘발유",
+            "unit_price": 1959,
+            "quantity": 25.524,
+            "amount": 50000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 45455,
+        "vat": 4545,
+        "total_amount": 50000
+      },
+      "vision_time": 3.493,
+      "input_tokens": 2878,
+      "output_tokens": 126,
+      "vision_cost": 0.0013528
+    },
+    {
+      "filename": "receipt_017.jpg",
+      "receipt": {
+        "merchant_name": "GS25심곡삼성점",
+        "transaction_date": "2026/06/29 18:09:09",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 8818,
+        "vat": 882,
+        "total_amount": 9700
+      },
+      "vision_time": 7.552,
+      "input_tokens": 2878,
+      "output_tokens": 75,
+      "vision_cost": 0.0012712
+    },
+    {
+      "filename": "receipt_018.jpg",
+      "receipt": {
+        "merchant_name": "에스엠하이플러스(주)",
+        "transaction_date": "2026-06-25 06:24:19",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": null,
+        "vat": null,
+        "total_amount": 100000
+      },
+      "vision_time": 3.778,
+      "input_tokens": 2878,
+      "output_tokens": 75,
+      "vision_cost": 0.0012712
+    },
+    {
+      "filename": "receipt_019.jpg",
+      "receipt": {
+        "merchant_name": "GS25망우금호점",
+        "transaction_date": "2026/06/24 18:49:00",
+        "items": [
+          {
+            "name": "EX 하이패스",
+            "unit_price": 0,
+            "quantity": 1,
+            "amount": 0
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 0,
+        "vat": 0,
+        "total_amount": 0
+      },
+      "vision_time": 2.86,
+      "input_tokens": 2878,
+      "output_tokens": 116,
+      "vision_cost": 0.0013368
+    },
+    {
+      "filename": "receipt_020.jpg",
+      "receipt": {
+        "merchant_name": "복성원",
+        "transaction_date": "2026/07/31 11:18:01",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 53632,
+        "vat": 5368,
+        "total_amount": 59000
+      },
+      "vision_time": 17.359,
+      "input_tokens": 2878,
+      "output_tokens": 72,
+      "vision_cost": 0.0012664
+    },
+    {
+      "filename": "receipt_021.jpg",
+      "receipt": {
+        "merchant_name": "GS25중랑망우점",
+        "transaction_date": "2026/07/30 05:25:04",
+        "items": [
+          {
+            "name": "메비)리운드갑",
+            "unit_price": 4500,
+            "quantity": 2,
+            "amount": 9000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 8182,
+        "vat": 818,
+        "total_amount": 9000
+      },
+      "vision_time": 2.601,
+      "input_tokens": 2878,
+      "output_tokens": 122,
+      "vision_cost": 0.0013464
+    },
+    {
+      "filename": "receipt_022.jpg",
+      "receipt": {
+        "merchant_name": "(주)서울에너지 시인천주유소",
+        "transaction_date": "2026년07월31일 12:53:47",
+        "items": [
+          {
+            "name": "경유",
+            "unit_price": 1794,
+            "quantity": 44.593,
+            "amount": 80000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 72728,
+        "vat": 7272,
+        "total_amount": 80000
+      },
+      "vision_time": 2.695,
+      "input_tokens": 2878,
+      "output_tokens": 121,
+      "vision_cost": 0.0013448
+    },
+    {
+      "filename": "receipt_023.jpg",
+      "receipt": {
+        "merchant_name": "홈마트(심곡)",
+        "transaction_date": "26-07-31 12:32",
+        "items": [
+          {
+            "name": "동서)맥심모카골드",
+            "unit_price": 27800,
+            "quantity": 4,
+            "amount": 111200
+          }
+        ],
+        "discount_amount": 16000,
+        "supply_amount": 101091,
+        "vat": 10109,
+        "total_amount": 111200
+      },
+      "vision_time": 7.461,
+      "input_tokens": 2878,
+      "output_tokens": 117,
+      "vision_cost": 0.0013384
+    },
+    {
+      "filename": "receipt_024.jpg",
+      "receipt": {
+        "merchant_name": "이레공주상사",
+        "transaction_date": "26/07/30 07:51:19",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 129545,
+        "vat": 12955,
+        "total_amount": 142500
+      },
+      "vision_time": 2.729,
+      "input_tokens": 2878,
+      "output_tokens": 74,
+      "vision_cost": 0.0012696
+    },
+    {
+      "filename": "receipt_025.jpg",
+      "receipt": {
+        "merchant_name": "엔제리너스 롯데시네인천아시아드점",
+        "transaction_date": "2026/07/28 13:34:05",
+        "items": [
+          {
+            "name": "#너티아메리카노IR",
+            "unit_price": 5300,
+            "quantity": 4,
+            "amount": 21200
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 19273,
+        "vat": 1927,
+        "total_amount": 21200
+      },
+      "vision_time": 3.661,
+      "input_tokens": 2878,
+      "output_tokens": 133,
+      "vision_cost": 0.001364
+    },
+    {
+      "filename": "receipt_026.jpg",
+      "receipt": {
+        "merchant_name": "용회주",
+        "transaction_date": "2026/07/26 11:19:16",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 22728,
+        "vat": 2272,
+        "total_amount": 25000
+      },
+      "vision_time": 3.316,
+      "input_tokens": 2878,
+      "output_tokens": 76,
+      "vision_cost": 0.0012728
+    },
+    {
+      "filename": "receipt_027.jpg",
+      "receipt": {
+        "merchant_name": "베스트우드",
+        "transaction_date": "26-07-23 09:57:22",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 134546,
+        "vat": 13454,
+        "total_amount": 148000
+      },
+      "vision_time": 2.599,
+      "input_tokens": 2878,
+      "output_tokens": 72,
+      "vision_cost": 0.0012664
+    },
+    {
+      "filename": "receipt_028.jpg",
+      "receipt": {
+        "merchant_name": "복성원",
+        "transaction_date": "2026/07/23 11:23:36",
+        "items": [],
+        "discount_amount": 0,
+        "supply_amount": 29091,
+        "vat": 2909,
+        "total_amount": 32000
+      },
+      "vision_time": 2.08,
+      "input_tokens": 2878,
+      "output_tokens": 72,
+      "vision_cost": 0.0012664
+    },
+    {
+      "filename": "receipt_029.jpg",
+      "receipt": {
+        "merchant_name": "(주)서울에너지 서인천주유소",
+        "transaction_date": "2026년07월23일 16:54:19",
+        "items": [
+          {
+            "name": "휘발유",
+            "unit_price": 1814,
+            "quantity": 33.076,
+            "amount": 60000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 54546,
+        "vat": 5454,
+        "total_amount": 60000
+      },
+      "vision_time": 2.356,
+      "input_tokens": 2878,
+      "output_tokens": 122,
+      "vision_cost": 0.0013464
+    },
+    {
+      "filename": "receipt_030.jpg",
+      "receipt": {
+        "merchant_name": "홈마트(심곡)",
+        "transaction_date": "26-07-23 12:25",
+        "items": [
+          {
+            "name": "맥심모카골드믹스 210T",
+            "unit_price": 31800,
+            "quantity": 2,
+            "amount": 63600
+          }
+        ],
+        "discount_amount": 12000,
+        "supply_amount": 57819,
+        "vat": 5781,
+        "total_amount": 63600
+      },
+      "vision_time": 3.099,
+      "input_tokens": 2878,
+      "output_tokens": 124,
+      "vision_cost": 0.0013496
+    },
+    {
+      "filename": "receipt_031.jpg",
+      "receipt": {
+        "merchant_name": "연희연세약국",
+        "transaction_date": "2026-07-24 13:58:02",
+        "items": [
+          {
+            "name": "조제약",
+            "unit_price": 1000,
+            "quantity": 1,
+            "amount": 1000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 910,
+        "vat": 90,
+        "total_amount": 1000
+      },
+      "vision_time": 5.047,
+      "input_tokens": 2878,
+      "output_tokens": 112,
+      "vision_cost": 0.0013304
+    },
+    {
+      "filename": "receipt_032.jpg",
+      "receipt": {
+        "merchant_name": "국민가게, 다이소",
+        "transaction_date": "2026.09.23 12:59:51",
+        "items": [
+          {
+            "name": "노랑내지상철절취스프링노트(",
+            "unit_price": 3000,
+            "quantity": 1,
+            "amount": 3000
+          },
+          {
+            "name": "포인트볼펜 0.7 mm(흑5",
+            "unit_price": 1000,
+            "quantity": 1,
+            "amount": 1000
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 3636,
+        "vat": 364,
+        "total_amount": 4000
+      },
+      "vision_time": 3.325,
+      "input_tokens": 2878,
+      "output_tokens": 174,
+      "vision_cost": 0.0014296
+    },
+    {
+      "filename": "receipt_033.jpg",
+      "receipt": {
+        "merchant_name": "이마트 별내점(MCD018)",
+        "transaction_date": "2026-09-26 14:19:24",
+        "items": [
+          {
+            "name": "남성) 커스텀드얀 집업 가 MSG4EC1400 LGR 105",
+            "unit_price": 59900,
+            "quantity": 1,
+            "amount": 59900
+          }
+        ],
+        "discount_amount": 5990,
+        "supply_amount": 49009,
+        "vat": 4901,
+        "total_amount": 53910
+      },
+      "vision_time": 2.606,
+      "input_tokens": 2878,
+      "output_tokens": 136,
+      "vision_cost": 0.0013688
+    },
+    {
+      "filename": "receipt_034.jpg",
+      "receipt": {
+        "merchant_name": "이마트 별내점",
+        "transaction_date": "2026-09-26 14:22",
+        "items": [
+          {
+            "name": "베트남 바나나 1묶음",
+            "unit_price": 1980,
+            "quantity": 2,
+            "amount": 3960
+          },
+          {
+            "name": "롯데 자일리톨알파 용",
+            "unit_price": 4780,
+            "quantity": 1,
+            "amount": 4780
+          },
+          {
+            "name": "쌀밥한공기 210g*12",
+            "unit_price": 10800,
+            "quantity": 1,
+            "amount": 10800
+          },
+          {
+            "name": "닥터크리닉 잇몸치약",
+            "unit_price": 14900,
+            "quantity": 1,
+            "amount": 14900
+          },
+          {
+            "name": "자연주의 유기농 찹쌀",
+            "unit_price": 23800,
+            "quantity": 1,
+            "amount": 23800
+          },
+          {
+            "name": "CJ비비고 사골곰탕500",
+            "unit_price": 1980,
+            "quantity": 4,
+            "amount": 7920
+          },
+          {
+            "name": "대림 오양맛살270g",
+            "unit_price": 2680,
+            "quantity": 1,
+            "amount": 2680
+          },
+          {
+            "name": "온더바디 더내추럴 라",
+            "unit_price": 6450,
+            "quantity": 1,
+            "amount": 6450
+          },
+          {
+            "name": "노브랜드 감자칩오리",
+            "unit_price": 1380,
+            "quantity": 1,
+            "amount": 1380
+          },
+          {
+            "name": "청정원 맛술 830ml(생",
+            "unit_price": 3580,
+            "quantity": 1,
+            "amount": 3580
+          },
+          {
+            "name": "감자칩샤워크림",
+            "unit_price": 1480,
+            "quantity": 1,
+            "amount": 1480
+          }
+        ],
+        "discount_amount": 17270,
+        "supply_amount": 65260,
+        "vat": 4045,
+        "total_amount": 65260
+      },
+      "vision_time": 6.695,
+      "input_tokens": 2878,
+      "output_tokens": 556,
+      "vision_cost": 0.0020408
+    },
+    {
+      "filename": "receipt_035.jpg",
+      "receipt": {
+        "merchant_name": "emart",
+        "transaction_date": "2026-09-26 14:19",
+        "items": [
+          {
+            "name": "탑텐 10000",
+            "unit_price": 10000,
+            "quantity": 5,
+            "amount": 50000
+          },
+          {
+            "name": "탑텐 1000",
+            "unit_price": 1000,
+            "quantity": 3,
+            "amount": 3000
+          },
+          {
+            "name": "탑텐 100",
+            "unit_price": 100,
+            "quantity": 9,
+            "amount": 900
+          },
+          {
+            "name": "탑텐 10",
+            "unit_price": 10,
+            "quantity": 1,
+            "amount": 10
+          }
+        ],
+        "discount_amount": 0,
+        "supply_amount": 49909,
+        "vat": 4901,
+        "total_amount": 53910
+      },
+      "vision_time": 2.783,
+      "input_tokens": 2878,
+      "output_tokens": 225,
+      "vision_cost": 0.0015112
+    }
+  ]
+}
